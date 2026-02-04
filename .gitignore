@@ -13,6 +13,7 @@ dist/
 docs/_build/
 tmp/
 venv/
+.venv/
 temp/
 tests_tmp/
 temp2/
@@ -20,3 +21,7 @@ tests/*/src/
 tests/*/core/
 *.spec
 /tests/metadata/data/
+Автомир.cfe
+/Автомир_from_zip
+/Автомир_unpack
+/Автомир_1c

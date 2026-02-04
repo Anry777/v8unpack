@@ -10,6 +10,8 @@ from .container_reader import extract as container_extract, decompress_and_extra
 from .container_writer import build as container_build, compress_and_build
 from .decoder import decode, encode
 from .ext_exception import ExtException
+from .format_1c import export_1c_format
+from .direct_1c import extract_1c_direct
 from .organizer_file import OrganizerFile
 from .organizer_file_ce import OrganizerFileCE
 from .helper import check_index, load_json
@@ -31,6 +33,9 @@ def extract(in_filename: str, out_dir_name: str, *, temp_dir=None, index=None, p
         print(f"Начали")
 
         descent = options.get('descent') if options else None
+        format_kind = options.get('format', 'json')
+        if format_kind not in ['json', '1c']:
+            raise ExtException(message='Неподдерживаемый формат', detail=f'format={format_kind}')
 
         if descent is None:
             helper.clear_dir(os.path.normpath(out_dir_name))
@@ -52,12 +57,14 @@ def extract(in_filename: str, out_dir_name: str, *, temp_dir=None, index=None, p
 
         # json_decode(dir_stage1, dir_stage2, pool=pool)
 
-        decode(dir_stage1, dir_stage3, pool=pool, options=options)
-
-        if descent is not None:
-            OrganizerFileCE.unpack(dir_stage3, out_dir_name, pool=pool, index=index, descent=descent)
+        if format_kind == '1c':
+            extract_1c_direct(dir_stage1, out_dir_name, options=options, pool=pool)
         else:
-            OrganizerFile.unpack(dir_stage3, out_dir_name, pool=pool, index=index)
+            decode(dir_stage1, dir_stage3, pool=pool, options=options)
+            if descent is not None:
+                OrganizerFileCE.unpack(dir_stage3, out_dir_name, pool=pool, index=index, descent=descent)
+            else:
+                OrganizerFile.unpack(dir_stage3, out_dir_name, pool=pool, index=index)
 
         end = datetime.now()
         print(f'{"Готово":30}: {end - begin0}')
@@ -75,6 +82,8 @@ def build(in_dir_name: str, out_file_name: str, *, temp_dir=None, index=None,
         begin0 = datetime.now()
         if options is None:
             options = {}
+        if options.get('format') == '1c':
+            raise ExtException(message='Формат 1c поддерживается только для распаковки')
 
         print(f"saby v8unpack {__version__}")
 
@@ -232,6 +241,9 @@ def main():
                              "Если не указан, то сборщик не трогает оглавление, вы добавляете и убираете"
                              "вложенные объекты всегда через конфигуратор")
 
+    parser.add_argument('--format', default='json', choices=['json', '1c'],
+                        help='Р¤РѕСЂРјР°С‚ СЂР°СЃРїР°РєРѕРІРєРё: json (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ) РёР»Рё 1c')
+
     group.add_argument('-EA', nargs=1, metavar='file',
                        help='разобрать один или несколько файлов 1С, где '
                             'file - путь до json файла со списком продуктов и параметрами их сборки')
@@ -250,7 +262,7 @@ def main():
     args = parser.parse_args()
 
     options = {}
-    options_name = ['prefix', 'auto_include', 'descent', 'version']
+    options_name = ['prefix', 'auto_include', 'descent', 'version', 'format']
     for elem in options_name:
         value = getattr(args, elem, None)
         if value:
